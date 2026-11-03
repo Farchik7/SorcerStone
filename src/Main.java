@@ -1,60 +1,55 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
 
-/*
-  @author   george
-  @project   Default (Template) Project
-  @class  ${NAME}
-  @version  1.0.0 
-  @since 06/09/2026 - 20.13
-*/
+public class Main {
+    // Винесено «магічне число» у константу замість жорсткого зашивання в циклі
+    private static final int TOP_LIMIT = 30;
 
-void main() throws IOException {
-
+    public static void main(String[] args) throws IOException {
         LocalDateTime start = LocalDateTime.now();
 
-        String content = new String(Files.readAllBytes(Paths.get("src/txt/harry.txt")));
-        int size = content.length();
-        content = content.replaceAll("[^A-Za-z ]"," ").toLowerCase(Locale.ROOT);
+        // Поділ логіки на окремі виклики методів (замість суцільного коду в main)
+        String content = readTextFile("src/txt/harry.txt");
+        List<String> words = extractWords(content);
+        
+        Map<String, Long> wordFrequencies = countWords(words);
+        
+        printTopWords(wordFrequencies, TOP_LIMIT);
 
-        String[] words = content.split(" +"); // 400 000
-
-
-        Arrays.sort(words);
-
-        String distinctString = " ";
-
-        for (int i = 0; i < words.length ; i++) {
-            if (!distinctString.contains(words[i])){
-                distinctString+= words[i] + " ";
-            }
-        }
-
-        String[] distincts = distinctString.split(" ");
-        int[] freq = new int[distincts.length];
-
-        for (int i = 0; i < distincts.length ; i++) {
-            int count = 0;
-            for (int j = 0; j < words.length ; j++) {
-                if (distincts[i].equals(words[j])) {
-                    count++;
-                }
-            }
-            freq[i] = count;
-        }
-
-        for (int i = 0; i < distincts.length ; i++) { // 5 000
-            distincts[i] += " " + freq[i];
-        }
-
-        Arrays.sort(distincts, Comparator.comparing(str
-                -> Integer.valueOf(str.replaceAll("[^0-9]", ""))));
-
-        for (int i = 0; i < 30; i++) {
-            System.out.println(distincts[distincts.length - 1 - i]);
-        }
         LocalDateTime finish = LocalDateTime.now();
-
         System.out.println("------");
         System.out.println(ChronoUnit.MILLIS.between(start, finish));
+    }
 
+    // Окремий метод для безпечного зчитування файлу
+    private static String readTextFile(String path) throws IOException {
+        return new String(Files.readAllBytes(Paths.get(path)));
+    }
 
+    // Окремий метод для очищення тексту та розбиття на окремі слова 
+    // (виправлено баг із підрядками: тепер split коректно формує список слів)
+    private static List<String> extractWords(String content) {
+        String cleaned = content.replaceAll("[^A-Za-z ]", " ").toLowerCase(Locale.ROOT);
+        return Arrays.asList(cleaned.split("\\s+"));
+    }
+
+    // Окремий метод для ефективного підрахунку частоти без вкладених циклів O(N^2)
+    private static Map<String, Long> countWords(List<String> words) {
+        return words.stream()
+                .filter(w -> !w.isEmpty())
+                .collect(Collectors.groupingBy(w -> w, Collectors.counting()));
+    }
+
+    // Окремий метод для сортування за популярністю та виводу результату
+    private static void printTopWords(Map<String, Long> wordFrequencies, int limit) {
+        wordFrequencies.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(limit)
+                .forEach(entry -> System.out.println(entry.getKey() + " " + entry.getValue()));
+    }
 }
