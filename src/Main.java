@@ -5,15 +5,11 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class Main {
     // Винесено «магічне число» у константу замість жорсткого зашивання в циклі
     private static final int TOP_LIMIT = 30;
-    
-    // Оптимізація пам'яті: попередньо скомпільований патерн для регулярних виразів
-    private static final Pattern WORD_PATTERN = Pattern.compile("[^A-Za-z ]+");
 
     public static void main(String[] args) throws IOException {
         LocalDateTime start = LocalDateTime.now();
@@ -21,7 +17,7 @@ public class Main {
         // Поділ логіки на окремі виклики методів
         String path = "src/txt/harry.txt";
         
-        // Оптимізація пам'яті: потоковий підрахунок без завантаження всього файлу в масив
+        // Оптимізація швидкодії: ультрашвидкий потоковий підрахунок без важких regex-патернів
         Map<String, Long> wordFrequencies = countWordsOptimized(path);
         
         printTopWords(wordFrequencies, TOP_LIMIT);
@@ -50,12 +46,22 @@ public class Main {
                 .collect(Collectors.groupingBy(w -> w, Collectors.counting()));
     }
 
-    // НОВИЙ МЕТОД ОПТИМІЗАЦІЇ ПАМ'ЯТІ: потокове читання рядків (Files.lines) замість масивів
+    // Оптимізація швидкодії та пам'яті: потокове читання з побуквненою обробкою char[] для максимальної продуктивності CPU
     private static Map<String, Long> countWordsOptimized(String path) throws IOException {
         try (var lines = Files.lines(Paths.get(path), StandardCharsets.ISO_8859_1)) {
             return lines
-                    .parallel() // Прискорення за рахунок паралельної обробки
-                    .map(line -> WORD_PATTERN.matcher(line).replaceAll(" ").toLowerCase(Locale.ROOT))
+                    .parallel() // Прискорення за рахунок паралельної обробки на всіх ядрах CPU
+                    .map(String::toLowerCase)
+                    .map(line -> {
+                        // Швидка заміна не-букв через масив символів без важких регулярних виразів
+                        char[] chars = line.toCharArray();
+                        for (int i = 0; i < chars.length; i++) {
+                            if (chars[i] < 'a' || chars[i] > 'z') {
+                                chars[i] = ' ';
+                            }
+                        }
+                        return new String(chars);
+                    })
                     .flatMap(line -> Arrays.stream(line.split("\\s+")))
                     .filter(w -> !w.isEmpty())
                     .collect(Collectors.groupingByConcurrent(w -> w, Collectors.counting()));
